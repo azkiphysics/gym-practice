@@ -1,6 +1,5 @@
 from collections import namedtuple
 import random
-import time
 
 import gym
 import numpy as np
@@ -175,5 +174,4 @@ if __name__ == "__main__":
 
         if e % TARGET_UPDATE == 0:
             target_net.load_state_dict(policy_net.state_dict())
-        
     print("Finish: Training")
