@@ -5,9 +5,7 @@ import os
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import animation
-from JSAnimation.IPython_display import display_animation
-from IPython.display import display
+import cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -20,24 +18,21 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def display_frames_as_gif(frames, savedir="movie", savefile="movie_cartpole_DQN.mp4"):
-    plt.figure(figsize=(frames[0].shape[1]/72.0, frames[0].shape[0]/72.0), dpi=100)
-    patch = plt.imshow(frames[0])
-    plt.axis('off')
-
-    def animate(i):
-        patch.set_data(frames[i])
-
-    anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames),
-                                   interval=50)
-
+def save_movie(frames, savedir="movie", savefile="movie_cartpole_DQN.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)
     path = os.path.join(path, savefile)
-    anim.save(path)
 
-    display(display_animation(anim, default_mode='loop'))
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter(path, fourcc, 50.0, (600, 600))
+
+    for frame in frames:
+        frame = cv2.resize(frame, (600,600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
 
 
 class ReplayMemory():
@@ -231,5 +226,7 @@ if __name__ == "__main__":
         print("Total Step: {}.".format(step))
         savedir="movie"
         savefile="movie_cartpole_DQN.mp4"
-        display_frames_as_gif(frames, savedir=savedir, savefile=savefile)
+        save_movie(frames, savedir=savedir, savefile=savefile)
     env.close()
+
+    
