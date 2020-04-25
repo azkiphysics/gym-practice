@@ -79,7 +79,6 @@ if __name__ == "__main__":
     step = 0
     while len(memory) < BATCH_SIZE:
         step += 1
-        # env.render()
         s = torch.from_numpy(o).type(torch.FloatTensor)
         s = torch.unsqueeze(s, 0)
         a = torch.LongTensor([[env.action_space.sample()]])
@@ -87,13 +86,12 @@ if __name__ == "__main__":
         if step >= 200:
             done = True
         if done:
-            if step < 195:
+            if step < 200:
                 r = torch.FloatTensor([-1.0])
             else:
                 r = torch.FloatTensor([1.0])
             s_next = None
             memory.push(s, a, s_next, r)
-            # print("(observation: {}, action: {}, next_observation: {}, reward: {})".format(s, a, s_next, r))
             o = env.reset()
             step = 0
         else:
@@ -101,10 +99,8 @@ if __name__ == "__main__":
             s_next = torch.from_numpy(o_next).type(torch.FloatTensor)
             s_next = torch.unsqueeze(s_next, 0)
             memory.push(s, a, s_next, r)
-            # print("(observation: {}, action: {}, next_observation: {}, reward: {})".format(s, a, s_next, r))
             o = o_next
     print("Finish: Pre-training")
-    # env.close()
 
     print("Start: Training")
     successes = np.zeros(10)
@@ -168,7 +164,7 @@ if __name__ == "__main__":
             optimizer.step()
         else:
             steps.append(step)
-            print("Episode", e, "Total Step: ", step)
+            print("Episode: {}, Total Step: {}.".format(e, step))
         
         if sum(successes) == 10:
             print("10 Times Success!!")
@@ -178,9 +174,27 @@ if __name__ == "__main__":
             target_net.load_state_dict(policy_net.state_dict())
     print("Finish: Training")
 
+
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax.plot(np.arange(1, len(steps)+1, 1), steps)
     ax.set_xlim(0, len(steps))
     ax.set_ylim(0, 210)
     plt.show()
+
+    o = env.reset()
+    done = False
+    step = 0
+    while not done:
+        step += 1
+        env.render()
+        s = torch.from_numpy(o).type(torch.FloatTensor)
+        s = torch.unsqueeze(s, 0)
+        policy_net.eval()
+        with torch.no_grad():
+            a = policy_net.forward(s).max(1)[1].view(1, 1)
+        o_next, _, done, _ = env.step(a.item())
+        o = o_next
+    else:
+        print("Total Step: {}.".format(step))
+    env.close()
