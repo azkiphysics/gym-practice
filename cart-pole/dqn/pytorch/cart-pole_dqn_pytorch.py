@@ -1,19 +1,43 @@
 from collections import namedtuple
 import random
+import os
 
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import animation
+from JSAnimation.IPython_display import display_animation
+from IPython.display import display
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
 
+Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
+
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
+def display_frames_as_gif(frames, savedir="movie", savefile="movie_cartpole_DQN.mp4"):
+    plt.figure(figsize=(frames[0].shape[1]/72.0, frames[0].shape[0]/72.0), dpi=100)
+    patch = plt.imshow(frames[0])
+    plt.axis('off')
+
+    def animate(i):
+        patch.set_data(frames[i])
+
+    anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames),
+                                   interval=50)
+
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    anim.save(path)
+
+    display(display_animation(anim, default_mode='loop'))
 
 
 class ReplayMemory():
@@ -180,14 +204,22 @@ if __name__ == "__main__":
     ax.plot(np.arange(1, len(steps)+1, 1), steps)
     ax.set_xlim(0, len(steps))
     ax.set_ylim(0, 210)
+    savedir = "img"
+    savefile = "cart-pole_dqn_pytorch_result.png"
+    path = os.path.join(os.getcwd(), "img")
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    plt.savefig(path, dpi=300)
     plt.show()
 
     o = env.reset()
     done = False
     step = 0
+    frames = []
     while not done:
         step += 1
-        env.render()
+        frames.append(env.render(mode='rgb_array'))
         s = torch.from_numpy(o).type(torch.FloatTensor)
         s = torch.unsqueeze(s, 0)
         policy_net.eval()
@@ -197,4 +229,7 @@ if __name__ == "__main__":
         o = o_next
     else:
         print("Total Step: {}.".format(step))
+        savedir="movie"
+        savefile="movie_cartpole_DQN.mp4"
+        display_frames_as_gif(frames, savedir=savedir, savefile=savefile)
     env.close()
