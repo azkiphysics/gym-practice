@@ -4,7 +4,6 @@ import random
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,6 +11,7 @@ import torch.nn.functional as F
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
@@ -53,7 +53,7 @@ class DQN(nn.Module):
 
 if __name__ == "__main__":
     EPISODE = 200
-    BATCH_SIZE = 32
+    BATCH_SIZE = 128
     CAPACITY = 10000
     GAMMA = 0.99
     EPS_START = 0.9
@@ -108,6 +108,7 @@ if __name__ == "__main__":
 
     print("Start: Training")
     successes = np.zeros(10)
+    steps = []
     for e in range(EPISODE):
         o = env.reset()
         done = False
@@ -166,6 +167,7 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
         else:
+            steps.append(step)
             print("Episode", e, "Total Step: ", step)
         
         if sum(successes) == 10:
@@ -175,3 +177,10 @@ if __name__ == "__main__":
         if e % TARGET_UPDATE == 0:
             target_net.load_state_dict(policy_net.state_dict())
     print("Finish: Training")
+
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    ax.plot(np.arange(1, len(steps)+1, 1), steps)
+    ax.set_xlim(0, len(steps))
+    ax.set_ylim(0, 210)
+    plt.show()
