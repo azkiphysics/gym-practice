@@ -93,34 +93,6 @@ if __name__ == "__main__":
 
     optimizer = optim.Adam(policy_net.parameters(), lr=0.0001)
 
-    print("Start: Pre-training")
-    o = env.reset()
-    step = 0
-    while len(memory) < BATCH_SIZE:
-        step += 1
-        s = torch.from_numpy(o).type(torch.FloatTensor)
-        s = torch.unsqueeze(s, 0)
-        a = torch.LongTensor([[env.action_space.sample()]])
-        o_next, _, done, _ = env.step(a.item())
-        if step >= 200:
-            done = True
-        if done:
-            if step < 200:
-                r = torch.FloatTensor([-1.0])
-            else:
-                r = torch.FloatTensor([1.0])
-            s_next = None
-            memory.push(s, a, s_next, r)
-            o = env.reset()
-            step = 0
-        else:
-            r = torch.FloatTensor([0.0])
-            s_next = torch.from_numpy(o_next).type(torch.FloatTensor)
-            s_next = torch.unsqueeze(s_next, 0)
-            memory.push(s, a, s_next, r)
-            o = o_next
-    print("Finish: Pre-training")
-
     print("Start: Training")
     successes = np.zeros(10)
     steps = []
@@ -154,13 +126,15 @@ if __name__ == "__main__":
                     successes[0] = 1
                     r = torch.FloatTensor([1.0])
                 s_next = None
-                memory.push(s, a, s_next, r)
             else:
                 r = torch.FloatTensor([0.0])
                 s_next = torch.from_numpy(o_next).type(torch.FloatTensor)
                 s_next = torch.unsqueeze(s_next, 0)
-                memory.push(s, a, s_next, r)
                 o = o_next
+            memory.push(s, a, s_next, r)
+            
+            if len(memory) < BATCH_SIZE:
+                continue
             
             policy_net.eval()
             transitions = memory.sample(BATCH_SIZE)
