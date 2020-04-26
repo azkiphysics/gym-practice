@@ -173,7 +173,7 @@ if __name__ == "__main__":
     ax.set_xlim(0, len(steps))
     ax.set_ylim(0, 210)
     savedir = "img"
-    savefile = "cart-pole_dqn_pytorch_result.png"
+    savefile = "result_cart_pole_dqn_pytorch.png"
     path = os.path.join(os.getcwd(), "img")
     if not os.path.exists(path):
         os.mkdir(path)
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     else:
         print("Total Step: {}.".format(step))
         savedir="movie"
-        savefile="movie_cartpole_DQN.mp4"
+        savefile="movie_cart_pole_dqn_pytorch.mp4"
         save_movie(frames, savedir=savedir, savefile=savefile)
     env.close()
 

@@ -1,9 +1,11 @@
+import os
 import random
 from collections import namedtuple, deque
 
 import numpy as np
 import matplotlib.pyplot as plt
 import gym
+import cv2
 from tensorflow import keras as K
 
 
@@ -34,7 +36,7 @@ if __name__ == "__main__":
     EPS_START = 0.9
     EPS_END = 0.005
     EPS_DECAY = 50
-    BATCH_SIZE = 32
+    BATCH_SIZE = 128
     LEARNING_RATE = 0.0001
     EPISODE = 200
     CAPACITY = 10000
@@ -61,6 +63,7 @@ if __name__ == "__main__":
 
     print("Start: Training")
     successes = deque(maxlen=10)
+    steps = []
     for e in range(EPISODE):
         o = env.reset()
         done = False
@@ -111,6 +114,7 @@ if __name__ == "__main__":
                 estimateds[i][batch_a[i]] = estimateds_[i]
             loss = policy_network.train_on_batch(batch_s, estimateds)
         else:
+            steps.append(step)
             print("episode: {}, step: {}".format(e, step))
         
         if e % TARGET_UPDATE == 0:
@@ -119,7 +123,37 @@ if __name__ == "__main__":
         if sum(successes) == 10:
             print("10 Times Success!!")
             break
-
-    #env.close()
     print("End: Training")
-        
+    
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    ax.plot(np.arange(1, len(steps)+1, 1), steps)
+    ax.set_xlim(0, len(steps))
+    ax.set_ylim(0, 210)
+    savedir = "img"
+    savefile = "result_cart_pole_dqn_tensorflow.png"
+    path = os.path.join(os.getcwd(), "img")
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    plt.savefig(path, dpi=300)
+    plt.show()
+
+    o = env.reset()
+    done = False
+    step = 0
+    frames = []
+    while not done:
+        step += 1
+        frames.append(env.render(mode='rgb_array'))
+        s = np.reshape(o, (1, -1))
+        a = policy_network.predict(s).argmax(axis=1)[0]
+        o_next, _, done, _ = env.step(a)
+        o = o_next
+    else:
+        print("Total Step: {}.".format(step))
+        savedir="movie"
+        savefile="movie_cart_pole_dqn_tensorflow.mp4"
+        save_movie(frames, savedir=savedir, savefile=savefile)
+    
+    env.close()
