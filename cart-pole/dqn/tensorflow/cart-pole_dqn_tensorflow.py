@@ -1,5 +1,5 @@
 import random
-from collections import namedtuple
+from collections import namedtuple, deque
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -60,6 +60,7 @@ if __name__ == "__main__":
     memory = ReplayMemory(CAPACITY)
 
     print("Start: Training")
+    successes = deque(maxlen=10)
     for e in range(EPISODE):
         o = env.reset()
         done = False
@@ -80,8 +81,10 @@ if __name__ == "__main__":
                 s_next = None
                 if step < 200:
                     r = -1.0
+                    successes.append(0)
                 else:
                     r = 1.0
+                    successes.append(1)
             else:
                 s_next = np.reshape(o_next, (1, -1))
                 r = 0.0
@@ -112,6 +115,11 @@ if __name__ == "__main__":
         
         if e % TARGET_UPDATE == 0:
             target_network.set_weights(policy_network.get_weights())
+        
+        if sum(successes) == 10:
+            print("10 Times Success!!")
+            break
+
     #env.close()
     print("End: Training")
         

@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, deque
 import random
 import os
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     optimizer = optim.Adam(policy_net.parameters(), lr=0.0001)
 
     print("Start: Training")
-    successes = np.zeros(10)
+    successes = deque(maxlen=10)
     steps = []
     for e in range(EPISODE):
         o = env.reset()
@@ -120,11 +120,10 @@ if __name__ == "__main__":
             if done:
                 if step < 200:
                     r = torch.FloatTensor([-1.0])
-                    successes = np.zeros(10)
+                    successes.append(0)
                 else:
-                    successes[1:] = successes[:-1]
-                    successes[0] = 1
                     r = torch.FloatTensor([1.0])
+                    successes.append(1)
                 s_next = None
             else:
                 r = torch.FloatTensor([0.0])
