@@ -18,7 +18,7 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def save_movie(frames, savedir="movie", savefile="movie_cartpole_DQN.mp4"):
+def save_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)

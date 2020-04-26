@@ -12,6 +12,23 @@ from tensorflow import keras as K
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 
 
+def save_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter(path, fourcc, 50.0, (600, 600))
+
+    for frame in frames:
+        frame = cv2.resize(frame, (600,600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
+
+
 class ReplayMemory():
 
     def __init__(self, capacity):
