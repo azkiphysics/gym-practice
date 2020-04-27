@@ -161,38 +161,24 @@ if __name__ == "__main__":
                 with torch.no_grad():
                     a = policy_network.forward(s).max(1)[1].view(1, 1)
             
-<<<<<<< HEAD
             _, _, done, _ = env.step(a.item())
             
-=======
-            _, r, done, _ = env.step(a.item())
-            r = torch.LongTensor([r]).to(device)
-
->>>>>>> 80b575486dc3e4d2ef6a563a3fa732f6f2e24a69
             if step >= 200:
                 done = True
 
             if done:
                 s_next = None
                 if step < 200:
-<<<<<<< HEAD
                     r = torch.LongTensor([-1.0]).to(device)
                     successes.append(0)
                 else:
                     r = torch.LongTensor([1.0]).to(device)
-=======
-                    successes.append(0)
-                else:
->>>>>>> 80b575486dc3e4d2ef6a563a3fa732f6f2e24a69
                     successes.append(1)
             else:
                 last_screen = current_screen
                 current_screen = get_screen()
                 s_next = current_screen - last_screen
-<<<<<<< HEAD
                 r = torch.LongTensor([0.0]).to(device)
-=======
->>>>>>> 80b575486dc3e4d2ef6a563a3fa732f6f2e24a69
             memory.push(s, a, s_next, r)
 
             if not done:
