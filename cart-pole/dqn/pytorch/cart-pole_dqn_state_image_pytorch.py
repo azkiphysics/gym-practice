@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
@@ -132,8 +132,8 @@ if __name__ == "__main__":
     input_shape = get_screen().shape[1:]
     n_actions = env.action_space.n
 
-    policy_network = DQN(input_shape, n_actions)
-    target_network = DQN(input_shape, n_actions)
+    policy_network = DQN(input_shape, n_actions).to(device)
+    target_network = DQN(input_shape, n_actions).to(device)
     target_network.load_state_dict(policy_network.state_dict())
     target_network.eval()
 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
             step += 1
 
             if np.random.rand() < epsilon:
-                a = torch.LongTensor([[env.action_space.sample()]], device=device)
+                a = torch.LongTensor([[env.action_space.sample()]]).to(device)
             else:
                 policy_network.eval()
                 with torch.no_grad():
@@ -168,16 +168,16 @@ if __name__ == "__main__":
             if done:
                 s_next = None
                 if step < 200:
-                    r = torch.LongTensor([-1.0], device=device)
+                    r = torch.LongTensor([-1.0]).to(device)
                     successes.append(0)
                 else:
-                    r = torch.LongTensor([1.0], device=device)
+                    r = torch.LongTensor([1.0]).to(device)
                     successes.append(1)
             else:
                 last_screen = current_screen
                 current_screen = get_screen()
                 s_next = current_screen - last_screen
-                r = torch.LongTensor([0.0], device=device)
+                r = torch.LongTensor([0.0]).to(device)
             memory.push(s, a, s_next, r)
 
             if not done:
@@ -196,7 +196,7 @@ if __name__ == "__main__":
             batch_r = torch.cat(batch.reward)
 
             estimateds = policy_network.forward(batch_s).gather(1, batch_a)
-            expecteds = torch.zeros(BATCH_SIZE, device=device)
+            expecteds = torch.zeros(BATCH_SIZE).to(device)
             expecteds[non_final_mask] = target_network(non_final_batch_s_next).max(1)[0].detach()
             expecteds = batch_r + GAMMA * expecteds
 
