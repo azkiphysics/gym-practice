@@ -42,19 +42,20 @@ class DQN(nn.Module):
         super(DQN, self).__init__()
 
         self.conv = nn.Sequential(
-            nn.Conv2d(input_shape[0], 32, kernel_size=8, stride=4),
+            nn.Conv2d(input_shape[0], 16, kernel_size=5, stride=2),
+            nn.BatchNorm2d(16),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(16, 32, kernel_size=5, stride=2),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.Conv2d(32, 32, kernel_size=5, stride=2),
+            nn.BatchNorm2d(32),
             nn.ReLU()
         )
 
         conv_out_size = self._get_conv_out(input_shape)
         self.fc = nn.Sequential(
-            nn.Linear(conv_out_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, n_actions)
+            nn.Linear(conv_out_size, n_actions)
         )
     
     def _get_conv_out(self, shape):
@@ -118,10 +119,10 @@ def save_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
 
 if __name__ == "__main__":
     CAPACITY = 10000
-    EPISODE = 50000
+    EPISODE = 1000
     EPS_START = 0.9
     EPS_END = 0.05
-    EPS_DECAY = 10000
+    EPS_DECAY = 50
     BATCH_SIZE = 128
     GAMMA = 0.999
     TARGET_UPDATE = 10
@@ -143,16 +144,15 @@ if __name__ == "__main__":
     steps = []
     successes = deque(maxlen=10)
     for e in range(EPISODE):
-        epsilon = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * e / EPS_DECAY)
         env.reset()
         done = False
         step = 0
         last_screen = get_screen()
         current_screen = get_screen()
         s = current_screen - last_screen
+        epsilon = EPS_END + (EPS_START - EPS_END) * np.exp(-1. * e / EPS_DECAY)
         while not done:
             step += 1
-
             if np.random.rand() < epsilon:
                 a = torch.LongTensor([[env.action_space.sample()]]).to(device)
             else:
@@ -160,7 +160,8 @@ if __name__ == "__main__":
                 with torch.no_grad():
                     a = policy_network.forward(s).max(1)[1].view(1, 1)
             
-            _, _, done, _ = env.step(a.item())
+            _, r, done, _ = env.step(a.item())
+            r = torch.LongTensor([r]).to(device)
 
             if step >= 200:
                 done = True
@@ -168,16 +169,13 @@ if __name__ == "__main__":
             if done:
                 s_next = None
                 if step < 200:
-                    r = torch.LongTensor([-1.0]).to(device)
                     successes.append(0)
                 else:
-                    r = torch.LongTensor([1.0]).to(device)
                     successes.append(1)
             else:
                 last_screen = current_screen
                 current_screen = get_screen()
                 s_next = current_screen - last_screen
-                r = torch.LongTensor([0.0]).to(device)
             memory.push(s, a, s_next, r)
 
             if not done:
@@ -196,7 +194,7 @@ if __name__ == "__main__":
             batch_r = torch.cat(batch.reward)
 
             estimateds = policy_network.forward(batch_s).gather(1, batch_a)
-            expecteds = torch.zeros(BATCH_SIZE).to(device)
+            expecteds = torch.zeros(BATCH_SIZE, device=device)
             expecteds[non_final_mask] = target_network(non_final_batch_s_next).max(1)[0].detach()
             expecteds = batch_r + GAMMA * expecteds
 
@@ -207,10 +205,11 @@ if __name__ == "__main__":
             optimizer.step()
         else:
             steps.append(step)
-            print("Episode: {}, Total Step: {}".format(e+1, step))
+            print("Episode: {}(Epsilon: {}), Total Step: {}".format(e+1, round(epsilon, 3), step))
         
         if e % TARGET_UPDATE == 0:
             target_network.load_state_dict(policy_network.state_dict())
+            print("Update: Target Network")
         
         if sum(successes) == 10:
             print("10times success!")
@@ -232,7 +231,7 @@ if __name__ == "__main__":
     plt.show()
 
 
-    o = env.reset()
+    env.reset()
     done = False
     step = 0
     frames = []
