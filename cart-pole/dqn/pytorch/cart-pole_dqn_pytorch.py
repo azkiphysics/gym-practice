@@ -15,7 +15,7 @@ import torch.nn.functional as F
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def save_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
@@ -105,10 +105,10 @@ if __name__ == "__main__":
         while not done:
             step += 1
             s = torch.from_numpy(o).type(torch.FloatTensor)
-            s = torch.unsqueeze(s, 0)
+            s = torch.unsqueeze(s, 0).to(device)
             policy_net.eval()
             if np.random.rand() < eps:
-                a = torch.LongTensor([[env.action_space.sample()]])
+                a = torch.LongTensor([[env.action_space.sample()]]).to(device)
             else:
                 with torch.no_grad():
                     a = policy_net.forward(s).max(1)[1].view(1, 1)
@@ -119,16 +119,16 @@ if __name__ == "__main__":
 
             if done:
                 if step < 200:
-                    r = torch.FloatTensor([-1.0])
+                    r = torch.FloatTensor([-1.0]).to(device)
                     successes.append(0)
                 else:
-                    r = torch.FloatTensor([1.0])
+                    r = torch.FloatTensor([1.0]).to(device)
                     successes.append(1)
                 s_next = None
             else:
-                r = torch.FloatTensor([0.0])
+                r = torch.FloatTensor([0.0]).to(device)
                 s_next = torch.from_numpy(o_next).type(torch.FloatTensor)
-                s_next = torch.unsqueeze(s_next, 0)
+                s_next = torch.unsqueeze(s_next, 0).to(device)
                 o = o_next
             memory.push(s, a, s_next, r)
             
@@ -145,7 +145,7 @@ if __name__ == "__main__":
             batch_r = torch.cat(batch.reward)
         
             estimateds = policy_net.forward(batch_s).gather(1, batch_a)
-            expecteds = torch.zeros(BATCH_SIZE)
+            expecteds = torch.zeros(BATCH_SIZE).to(device)
             expecteds[non_final_mask] = target_net.forward(non_final_batch_s_next).max(1)[0].detach()
             expecteds = batch_r + GAMMA * expecteds
         
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         step += 1
         frames.append(env.render(mode='rgb_array'))
         s = torch.from_numpy(o).type(torch.FloatTensor)
-        s = torch.unsqueeze(s, 0)
+        s = torch.unsqueeze(s, 0).to(device)
         policy_net.eval()
         with torch.no_grad():
             a = policy_net.forward(s).max(1)[1].view(1, 1)
