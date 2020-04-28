@@ -33,7 +33,21 @@ class PolicyGradient(nn.Module):
         return x
 
 
-def save_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
+def make_graph(steps, savedir="movie", savefile="movie_cartpole.dqn.mp4"):
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    ax.plot(np.arange(1, len(steps)+1, 1), steps)
+    ax.set_xlim(0, len(steps))
+    ax.set_ylim(0, 210)
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    plt.savefig(path, dpi=300)
+    plt.show()
+
+
+def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)
@@ -135,19 +149,11 @@ if __name__ == "__main__":
             print("{} times success !".format(MAXLEN))
             break
 
-    fig = plt.figure(figsize=(6, 4))
-    ax = fig.add_subplot(111)
-    ax.plot(np.arange(1, len(steps)+1, 1), steps)
-    ax.set_xlim(0, len(steps))
-    ax.set_ylim(0, 210)
+
     savedir = 'img'
     savefile = 'result_cart_pole_policy_gradient_pytorch.png'
-    path = os.path.join(os.getcwd(), savedir)
-    if not os.path.exists(path):
-        os.mkdir(path)
-    path = os.path.join(path, savefile)
-    plt.savefig(path, dpi=300)
-    plt.show()
+    make_graph(steps, savedir=savedir, savefile=savefile)
+
 
     o = env.reset()
     done = False
@@ -172,6 +178,6 @@ if __name__ == "__main__":
         print("Total Step: {}".format(step))
         savedir = "movie"
         savefile = "movie_cart_pole_policy_gradient_pytorch.mp4"
-        save_movie(frames, savedir=savedir, savefile=savefile)
+        make_movie(frames, savedir=savedir, savefile=savefile)
     
     env.close()
