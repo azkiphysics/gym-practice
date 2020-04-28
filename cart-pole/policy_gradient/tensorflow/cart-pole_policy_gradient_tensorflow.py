@@ -14,7 +14,7 @@ tf.compat.v1.disable_eager_execution()
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 
 
-def make_graph(steps, savedir="img", savefile="results_cart_pole_dqn.png"):
+def make_graph(steps, savedir="img", savefile="results_cart_pole.png"):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax.plot(np.arange(1, len(steps)+1, 1), steps)
@@ -28,7 +28,7 @@ def make_graph(steps, savedir="img", savefile="results_cart_pole_dqn.png"):
     plt.show()
 
 
-def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
+def make_movie(frames, savedir="movie", savefile="movie_cart_pole.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)
@@ -45,7 +45,7 @@ def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
     video.release()
 
 
-def save_model(model, savedir="model", savefile="model_cart_pole_dqn.h5"):
+def save_model(model, savedir="model", savefile="model_cart_pole.h5"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)

@@ -33,7 +33,7 @@ class PolicyGradient(nn.Module):
         return x
 
 
-def make_graph(steps, savedir="movie", savefile="movie_cartpole.dqn.mp4"):
+def make_graph(steps, savedir="movie", savefile="results_cart_pole.png"):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax.plot(np.arange(1, len(steps)+1, 1), steps)
@@ -47,7 +47,7 @@ def make_graph(steps, savedir="movie", savefile="movie_cartpole.dqn.mp4"):
     plt.show()
 
 
-def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
+def make_movie(frames, savedir="movie", savefile="movie_cart_pole.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)
@@ -62,6 +62,14 @@ def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
         video.write(frame)
 
     video.release()
+
+
+def save_model(model, savedir="model", savefile="model_cart_pole_dqn.pth"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    torch.save(model.state_dict(), path)
 
 
 if __name__ == "__main__":
@@ -181,3 +189,8 @@ if __name__ == "__main__":
         make_movie(frames, savedir=savedir, savefile=savefile)
     
     env.close()
+
+
+    savedir = "model"
+    savefile = "model_cart_pole_policy_gradient_pytorch.pth"
+    save_model(network, savedir=savedir, savefile=savefile)
