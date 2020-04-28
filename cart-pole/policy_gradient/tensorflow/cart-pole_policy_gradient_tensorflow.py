@@ -45,6 +45,14 @@ def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
     video.release()
 
 
+def save_model(model, savedir="model", savefile="model_cart_pole_dqn.h5"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    model.save(path)
+
+
 class PolicyGradient():
 
     def __init__(self, input_shape, n_actions, optimizer):
@@ -174,3 +182,8 @@ if __name__ == "__main__":
     savefile = "movie_cart_pole_policy_gradient_tensorflow.mp4"
     make_movie(frames, savedir=savedir, savefile=savefile)
     env.close()
+
+
+    savedir = "model"
+    savefile = "model_cart_pole_policy_gradient_tensorflow.h5"
+    save_model(agent.model, savedir=savedir, savefile=savefile)
