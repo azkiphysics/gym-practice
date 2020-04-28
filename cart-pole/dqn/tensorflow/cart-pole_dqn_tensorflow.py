@@ -12,7 +12,7 @@ from tensorflow import keras as K
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
 
 
-def make_graph(steps, savedir="img", savefile="results_cart_pole_dqn.png"):
+def make_graph(steps, savedir="img", savefile="results_cart_pole.png"):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax.plot(np.arange(1, len(steps)+1, 1), steps)
@@ -26,7 +26,7 @@ def make_graph(steps, savedir="img", savefile="results_cart_pole_dqn.png"):
     plt.show()
 
 
-def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
+def make_movie(frames, savedir="movie", savefile="movie_cartpole.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)
@@ -41,6 +41,14 @@ def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
         video.write(frame)
 
     video.release()
+
+
+def save_model(model, savedir="model", savefile="model_cart_pole.h5"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    model.save(path)
 
 
 class ReplayMemory():
@@ -182,3 +190,10 @@ if __name__ == "__main__":
         make_movie(frames, savedir=savedir, savefile=savefile)
     
     env.close()
+
+
+    savedir = "model"
+    savefile = "model_cart_pole_dqn_policy_network_tensorflow.h5"
+    save_model(policy_network, savedir=savedir, savefile=savefile)
+    savefile = "model_cart_pole_dqn_target_network_tensorflow.h5"
+    save_model(target_network, savedir=savedir, savefile=savefile)

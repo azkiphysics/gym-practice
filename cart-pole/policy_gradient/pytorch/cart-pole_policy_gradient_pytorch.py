@@ -64,7 +64,7 @@ def make_movie(frames, savedir="movie", savefile="movie_cart_pole.mp4"):
     video.release()
 
 
-def save_model(model, savedir="model", savefile="model_cart_pole_dqn.pth"):
+def save_model(model, savedir="model", savefile="model_cart_pole.pth"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)

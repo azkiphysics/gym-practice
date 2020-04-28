@@ -18,7 +18,7 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def make_graph(steps, savedir="img", savefile="results_cart_pole_dqn.png"):
+def make_graph(steps, savedir="img", savefile="results_cart_pole.png"):
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(111)
     ax.plot(np.arange(1, len(steps)+1, 1), steps)
@@ -47,6 +47,14 @@ def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
         video.write(frame)
 
     video.release()
+
+
+def save_model(model, savedir="model", savefile="model_cart_pole.pth"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    torch.save(model.state_dict(), path)
 
 
 class ReplayMemory():
@@ -210,3 +218,8 @@ if __name__ == "__main__":
     env.close()
 
     
+    savedir = "model"
+    savefile = "model_cart_pole_dqn_policy_network_pytorch.pth"
+    save_model(policy_net, savedir=savedir, savefile=savefile)
+    savefile = "model_cart_pole_dqn_target_network_pytorch.pth"
+    save_model(target_net, savedir=savedir, savefile=savefile)
