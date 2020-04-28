@@ -9,4 +9,9 @@ import matplotlib.pyplot as plt
 from tensorflow import keras as K
 
 if __name__ == "__main__":
-    pass
+    EPISODE = 200
+
+    env = gym.make("CartPole-v0").unwrapped
+
+    for e in range(EPISODE):
+        

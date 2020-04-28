@@ -18,7 +18,21 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-def save_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
+def make_graph(steps, savedir="img", savefile="results_cart_pole_dqn.png"):
+    fig = plt.figure(figsize=(6, 4))
+    ax = fig.add_subplot(111)
+    ax.plot(np.arange(1, len(steps)+1, 1), steps)
+    ax.set_xlim(0, len(steps))
+    ax.set_ylim(0, 210)
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    plt.savefig(path, dpi=300)
+    plt.show()
+
+
+def make_movie(frames, savedir="movie", savefile="movie_cartpole_dqn.mp4"):
     path = os.path.join(os.getcwd(), savedir)
     if not os.path.exists(path):
         os.mkdir(path)
@@ -167,19 +181,10 @@ if __name__ == "__main__":
     print("Finish: Training")
 
 
-    fig = plt.figure(figsize=(6, 4))
-    ax = fig.add_subplot(111)
-    ax.plot(np.arange(1, len(steps)+1, 1), steps)
-    ax.set_xlim(0, len(steps))
-    ax.set_ylim(0, 210)
     savedir = "img"
     savefile = "result_cart_pole_dqn_pytorch.png"
-    path = os.path.join(os.getcwd(), "img")
-    if not os.path.exists(path):
-        os.mkdir(path)
-    path = os.path.join(path, savefile)
-    plt.savefig(path, dpi=300)
-    plt.show()
+    make_graph(steps, savedir=savedir, savefile=savefile)
+
 
     o = env.reset()
     done = False
@@ -195,11 +200,13 @@ if __name__ == "__main__":
             a = policy_net.forward(s).max(1)[1].view(1, 1)
         o_next, _, done, _ = env.step(a.item())
         o = o_next
+        if step >= 1000:
+            break
     else:
         print("Total Step: {}.".format(step))
         savedir="movie"
         savefile="movie_cart_pole_dqn_pytorch.mp4"
-        save_movie(frames, savedir=savedir, savefile=savefile)
+        make_movie(frames, savedir=savedir, savefile=savefile)
     env.close()
 
     
