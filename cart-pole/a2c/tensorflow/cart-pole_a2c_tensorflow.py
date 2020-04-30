@@ -77,7 +77,7 @@ class ActorCriticAgent():
 
         self.model = K.Model(inputs=model.input, outputs=[actions, action_evals, values])
 
-    def set_updater(self, optimizer, value_loss_weight=1.0, entropy_weight=0.1):
+    def set_updater(self, optimizer, value_loss_weight=0.5, entropy_weight=0.01):
         actions = tf.compat.v1.placeholder(shape=(None), dtype="int32")
         values = tf.compat.v1.placeholder(shape=(None), dtype="float32")
 
@@ -142,17 +142,17 @@ class SampleLayer(K.layers.Layer):
 
 if __name__ == "__main__":
     BUFFER_SIZE = 256
-    BATCH_SIZE = 1
+    BATCH_SIZE = 32
     MAXLEN = 10
     EPISODE = 1000
-    LEARNING_RATE = 8e-4
+    LEARNING_RATE = 1e-2
     GAMMA = 0.99
 
     env = gym.make("CartPole-v0").unwrapped
     n_observation = env.observation_space.shape[0]
     n_actions = env.action_space.n
 
-    optimizer = K.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=5.0)
+    optimizer = K.optimizers.Adam(learning_rate=LEARNING_RATE, clipnorm=0.5)
     agent = ActorCriticAgent(n_observation, n_actions, optimizer)
 
     steps = []
@@ -214,6 +214,9 @@ if __name__ == "__main__":
         else:
             steps.append(step)
             print("Episode: {}, Total Step: {}".format(e, step))
+        
+        if sum(successes) == MAXLEN:
+            print("{} times success!".format(MAXLEN))
 
     
     savedir = "img"
