@@ -50,9 +50,9 @@ def save_model(model, savedir="model", savefile="model.pth"):
     path = os.path.join(path, savefile)
     torch.save(model.state_dict(), path)
 
-def ornstein_uhlenbeck(x, theta=0.15, mu=0, sigma=0.2, clip_min=-2.0, clip_max=2.0):
+def ornstein_uhlenbeck(x, theta=0.15, mu=0, sigma=0.2):
     x_next = x + theta * (mu - x) + sigma * np.random.normal()
-    return np.clip(x_next, clip_min, clip_max)
+    return x_next
 
 def soft_update(target, source, tau=0.001):
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -157,6 +157,7 @@ if __name__ == "__main__":
                 a = actor_net.forward(s)
                 noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
                 a += noise
+                a = np.clip(a, -2, 2)
                 noise_prev = noise
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
@@ -221,6 +222,7 @@ if __name__ == "__main__":
             a = actor_net.forward(s)
             noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
             a += noise
+            a = np.clip(a, -2, 2)
             noise_prev = noise
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
