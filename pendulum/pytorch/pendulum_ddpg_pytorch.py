@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 a = torch.FloatTensor([[ornstein_uhlenbeck(a.item())]]).to(device)
             o_next, r, done, _ = env.step(np.array([a.item()]))
             r_total += r
-            r = torch.FloatTensor([[r]])
+            r = torch.FloatTensor([[r]]).to(device)
 
             s_next = torch.from_numpy(o_next).type(torch.FloatTensor)
             s_next = torch.unsqueeze(s_next, 0).to(device)
