@@ -113,7 +113,7 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 100000
+    EPISODE = 200
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-4
@@ -144,8 +144,7 @@ if __name__ == "__main__":
             actor_net.eval()
             with torch.no_grad():
                 a = actor_net.forward(s)
-                a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]])
-                a = a.to(device)
+                a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]]).to(device)
                 a_prev = a
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
@@ -206,8 +205,7 @@ if __name__ == "__main__":
         s = torch.unsqueeze(s, 0).to(device)
         with torch.no_grad():
             a = actor_net.forward(s)
-            a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]])
-            a = a.to(device)
+            a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]]).to(device)
             a_prev = a
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
