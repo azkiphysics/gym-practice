@@ -54,6 +54,10 @@ def ornstein_uhlenbeck(x, theta=0.15, mu=0, sigma=0.2, clip_min=-2.0, clip_max=2
     x_next = x + theta * (mu - x) + sigma * np.random.normal()
     return np.clip(x_next, clip_min, clip_max)
 
+def soft_update(target, source, tau=0.001):
+    for target_param, param in zip(target.parameters(), source.parameters()):
+        target_param.data.copy_(target_param * (1-tau) + param * tau)
+
 
 class ReplayMemory():
 
@@ -113,17 +117,24 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 100000
+    EPISODE = 20000
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-4
+
+    tau = 0.005
 
     env = gym.make("Pendulum-v0")
     n_observation = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
 
     actor_net = DDPG_Actor(n_observation, n_actions).to(device)
+    actor_net_target = DDPG_Actor(n_observation, n_actions).to(device)
+    critic_net_target = DDPG_Critic(n_observation, n_actions).to(device)
     critic_net = DDPG_Critic(n_observation, n_actions).to(device)
+
+    soft_update(actor_net_target, actor_net, tau=1.0)
+    soft_update(critic_net_target, critic_net, tau=1.0)
 
     actor_optim = optim.Adam(actor_net.parameters(), lr=ACTOR_LEARNING_RATE)
     critic_optim = optim.Adam(critic_net.parameters(), lr=CRITIC_LEARNING_RATE)
@@ -170,7 +181,7 @@ if __name__ == "__main__":
 
             critic_net.train()
             q = critic_net(batch_s, batch_a)
-            q_next = critic_net.forward(batch_s_next, actor_net.forward(batch_s_next))
+            q_next = critic_net_target.forward(batch_s_next, actor_net_target.forward(batch_s_next))
             q_next[batch_non_final_mask] = 0
             q_ref = batch_r + GAMMA * q_next
             critic_loss = F.mse_loss(q, q_ref.detach())
@@ -179,12 +190,14 @@ if __name__ == "__main__":
             critic_optim.step()
 
             actor_net.train()
-            q = critic_net(batch_s, batch_a)
+            q = critic_net.forward(batch_s, batch_a)
             actor_loss = -q.mean()
             actor_optim.zero_grad()
             actor_loss.backward()
             actor_optim.step()
             
+            soft_update(actor_net_target, actor_net, tau=tau)
+            soft_update(critic_net_target, critic_net, tau=tau)
 
         else:
             r_totals.append(r_total)
