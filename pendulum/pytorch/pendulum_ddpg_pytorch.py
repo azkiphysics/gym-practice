@@ -17,13 +17,38 @@ Transition = namedtuple('Transition',('s', 'a', 's_next', 'r', 'done'))
 
 
 def make_graph(rewards, savedir="img", savefile="graph.png"):
-    pass
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    fig = plt.figure(figsize=(6,4))
+    ax = fig.add_subplot(111)
+    ax.plot(np.arange(1, len(rewards)+1, 1), rewards)
+    ax.set_xlim(0, len(rewards))
+    plt.savefig(path, dpi=300)
 
 def make_movie(frames, savedir="movie", savefile="movie.mp4"):
-    pass
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
 
-def save_model(agent, savedir="model", savefile="model.pth"):
-    pass
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter(path, fourcc, 50.0, (600, 600))
+
+    for frame in frames:
+        frame = cv2.resize(frame, (600,600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
+
+def save_model(model, savedir="model", savefile="model.pth"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    torch.save(model.state_dict(), path)
 
 def ornstein_uhlenbeck(x, theta=0.15, mu=0, sigma=0.2, clip_min=-2.0, clip_max=2.0):
     x_next = x + theta * (mu - x) + sigma * np.random.normal()
@@ -88,7 +113,7 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 10000
+    EPISODE = 10
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-4
@@ -111,6 +136,7 @@ if __name__ == "__main__":
         done = False
         r_total = 0
         step = 0
+        a_prev = torch.FloatTensor([[0.0]])
         while not done:
             step += 1
             s = torch.from_numpy(o).type(torch.FloatTensor)
@@ -118,7 +144,10 @@ if __name__ == "__main__":
             actor_net.eval()
             with torch.no_grad():
                 a = actor_net.forward(s)
-                a = torch.FloatTensor([[ornstein_uhlenbeck(a.item())]]).to(device)
+                a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]])
+                a = a.to(device)
+                a_prev = a
+
             o_next, r, done, _ = env.step(np.array([a.item()]))
             r_total += r
             r = torch.FloatTensor([[r]]).to(device)
@@ -160,7 +189,7 @@ if __name__ == "__main__":
 
         else:
             r_totals.append(r_total)
-            print("Episode: {}, Total Reward: {}".format(e, r_total))
+            print("Episode: {}, Total Reward: {}".format(e+1, r_total))
 
     savedir = "img"
     savefile = "reward_pendulum_ddpg_pytorch.png"
@@ -170,14 +199,17 @@ if __name__ == "__main__":
     done = False
     r_total = 0
     frames = []
+    a_prev = torch.FloatTensor([[0.0]])
     while not done:
         frames.append(env.render(mode="rgb_array"))
         s = torch.from_numpy(o).type(torch.FloatTensor)
         s = torch.unsqueeze(s, 0).to(device)
         with torch.no_grad():
             a = actor_net.forward(s)
-            a = torch.FloatTensor([[ornstein_uhlenbeck(a.item())]]).to(device)
-        o_next, r, done, _ = env.step(np.array([a_with_noise.item()]))
+            a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]])
+            a = a.to(device)
+            a_prev = a
+        o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
         o = o_next
     else:
