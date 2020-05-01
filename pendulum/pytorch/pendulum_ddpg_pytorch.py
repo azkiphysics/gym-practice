@@ -113,7 +113,7 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 200
+    EPISODE = 100000
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-4
