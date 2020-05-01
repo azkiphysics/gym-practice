@@ -117,7 +117,7 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 20000
+    EPISODE = 100000
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-4
@@ -147,7 +147,7 @@ if __name__ == "__main__":
         done = False
         r_total = 0
         step = 0
-        a_prev = torch.FloatTensor([[0.0]])
+        noise_prev = torch.FloatTensor([[0.0]])
         while not done:
             step += 1
             s = torch.from_numpy(o).type(torch.FloatTensor)
@@ -155,8 +155,9 @@ if __name__ == "__main__":
             actor_net.eval()
             with torch.no_grad():
                 a = actor_net.forward(s)
-                a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]]).to(device)
-                a_prev = a
+                noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
+                a += noise
+                noise_prev = noise
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
             r_total += r
@@ -211,15 +212,16 @@ if __name__ == "__main__":
     done = False
     r_total = 0
     frames = []
-    a_prev = torch.FloatTensor([[0.0]])
+    noise_prev = torch.FloatTensor([[0.0]])
     while not done:
         frames.append(env.render(mode="rgb_array"))
         s = torch.from_numpy(o).type(torch.FloatTensor)
         s = torch.unsqueeze(s, 0).to(device)
         with torch.no_grad():
             a = actor_net.forward(s)
-            a += torch.FloatTensor([[ornstein_uhlenbeck(a_prev.item())]]).to(device)
-            a_prev = a
+            noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
+            a += noise
+            noise_prev = noise
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
         o = o_next
