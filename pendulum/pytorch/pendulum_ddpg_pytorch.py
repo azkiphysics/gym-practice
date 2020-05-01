@@ -157,7 +157,7 @@ if __name__ == "__main__":
                 a = actor_net.forward(s)
                 noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
                 a += noise
-                a = np.clip(a, -2, 2)
+                a = torch.clamp(a, -2, 2).to(device)
                 noise_prev = noise
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
@@ -222,7 +222,7 @@ if __name__ == "__main__":
             a = actor_net.forward(s)
             noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
             a += noise
-            a = np.clip(a, -2, 2)
+            a = torch.clamp(a, -2, 2).to(device)
             noise_prev = noise
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
