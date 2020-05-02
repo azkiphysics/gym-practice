@@ -55,8 +55,10 @@ def ornstein_uhlenbeck(x, theta=0.15, mu=0, sigma=0.2, dt=1e-2):
     return x_next
 
 def soft_update(target, source, tau=0.001):
-    for target_key, source_key in zip(target.state_dict(), source.state_dict()):
-        target.state_dict()[target_key] = target.state_dict()[target_key] * (1 - tau) + source.state_dict()[source_key] * tau
+    with torch.no_grad():
+        for p_target, p in zip(target.parameters(), source.parameters()):
+            p_target.data.mul_(1 - tau)
+            p_target.data.add_(tau * p.data)
 
 
 class ReplayMemory():
@@ -91,6 +93,12 @@ class DDPG_Actor(nn.Module):
     
     def forward(self, x):
         return self.net(x)
+    
+    def get_action(self, x, noise_scale=0.1, act_limit=1.0):
+        with torch.no_grad():
+            a = self.forward(x)
+            a += torch.FloatTensor([[noise_scale * np.random.randn()]])
+        return torch.clamp(a, -act_limit, act_limit).to(device)
 
 
 class DDPG_Critic(nn.Module):
@@ -117,7 +125,7 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 100
+    EPISODE = 200
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-3
@@ -147,20 +155,21 @@ if __name__ == "__main__":
         done = False
         r_total = 0
         step = 0
-        noise_prev = torch.FloatTensor([[0.0]])
+        # noise_prev = torch.FloatTensor([[0.0]])
         while not done:
             step += 1
             s = torch.from_numpy(o).type(torch.FloatTensor)
             s = torch.unsqueeze(s, 0).to(device)
 
-            actor_net.eval()
-            with torch.no_grad():
-                a = actor_net.forward(s)
-                # noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
-                noise = torch.FloatTensor([[np.random.randn() * 0.01]]).to(device)
-                a += noise
-                a = torch.clamp(a, -1, 1).to(device)
-                noise_prev = noise
+            # actor_net.eval()
+            # with torch.no_grad():
+            #     a = actor_net.forward(s)
+            #     # noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
+            #     noise = torch.FloatTensor([[np.random.randn() * 0.01]]).to(device)
+            #     a += noise
+            #     a = torch.clamp(a, -1, 1).to(device)
+            #     noise_prev = noise
+            a = actor_net.get_action(s)
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
             r_total += r
@@ -183,25 +192,27 @@ if __name__ == "__main__":
             batch_s_next = torch.cat(batch.s_next)
             batch_r = torch.cat(batch.r)
 
-            actor_net.eval()
             critic_net.train()
             critic_optim.zero_grad()
             q = critic_net(batch_s, batch_a)
             q_next = critic_net_target.forward(batch_s_next, actor_net_target.forward(batch_s_next))
             q_next[batch_done] = 0.0
             q_ref = batch_r + GAMMA * q_next
-            critic_loss = F.mse_loss(q, q_ref.detach())
+            critic_loss = ((q - q_ref.detach())**2).mean()
             critic_loss.backward()
             critic_optim.step()
 
             actor_net.train()
-            critic_net.eval()
+            for p in critic_net.parameters():
+                p.requires_grad = False
             actor_optim.zero_grad()
             batch_cur_a = actor_net.forward(batch_s)
             q = critic_net.forward(batch_s, batch_cur_a).to(device)
             actor_loss = -q.mean()
             actor_loss.backward()
             actor_optim.step()
+            for p in critic_net.parameters():
+                p.requires_grad = True
             
             soft_update(actor_net_target, actor_net, tau=tau)
             soft_update(critic_net_target, critic_net, tau=tau)
@@ -223,13 +234,14 @@ if __name__ == "__main__":
         frames.append(env.render(mode="rgb_array"))
         s = torch.from_numpy(o).type(torch.FloatTensor)
         s = torch.unsqueeze(s, 0).to(device)
-        with torch.no_grad():
-            a = actor_net.forward(s)
-            # noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
-            noise = torch.FloatTensor([[np.random.randn() * 0.01]]).to(device)
-            a += noise
-            a = torch.clamp(a, -1, 1).to(device)
-            noise_prev = noise
+        # with torch.no_grad():
+        #     a = actor_net.forward(s)
+        #     # noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
+        #     noise = torch.FloatTensor([[np.random.randn() * 0.01]]).to(device)
+        #     a += noise
+        #     a = torch.clamp(a, -1, 1).to(device)
+        #     noise_prev = noise
+        a = actor_net.get_action(s)
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
         o = o_next
