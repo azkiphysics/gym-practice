@@ -97,7 +97,7 @@ class DDPG_Actor(nn.Module):
     def get_action(self, x, noise_scale=0.1, act_limit=1.0):
         with torch.no_grad():
             a = self.forward(x)
-            a += torch.FloatTensor([[noise_scale * np.random.randn()]])
+            a += torch.FloatTensor([[noise_scale * np.random.randn()]]).to(device)
         return torch.clamp(a, -act_limit, act_limit).to(device)
 
 
@@ -125,7 +125,7 @@ class DDPG_Critic(nn.Module):
 if __name__ == "__main__":
     CAPACITY = 10000
     BATCH_SIZE = 64
-    EPISODE = 200
+    EPISODE = 1000
     GAMMA = 0.99
     ACTOR_LEARNING_RATE = 1e-4
     CRITIC_LEARNING_RATE = 1e-3
@@ -168,7 +168,7 @@ if __name__ == "__main__":
             #     a += noise
             #     a = torch.clamp(a, -1, 1).to(device)
             #     noise_prev = noise
-            a = actor_net.get_action(s).to(device)
+            a = actor_net.get_action(s)
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
             r_total += r
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         #     a += noise
         #     a = torch.clamp(a, -1, 1).to(device)
         #     noise_prev = noise
-        a = actor_net.get_action(s).to(device)
+        a = actor_net.get_action(s)
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
         o = o_next
