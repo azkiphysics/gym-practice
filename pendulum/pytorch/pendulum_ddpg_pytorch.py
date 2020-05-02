@@ -164,8 +164,7 @@ if __name__ == "__main__":
             # actor_net.eval()
             # with torch.no_grad():
             #     a = actor_net.forward(s)
-            #     # noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
-            #     noise = torch.FloatTensor([[np.random.randn() * 0.01]]).to(device)
+            #     noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
             #     a += noise
             #     a = torch.clamp(a, -1, 1).to(device)
             #     noise_prev = noise
@@ -236,8 +235,7 @@ if __name__ == "__main__":
         s = torch.unsqueeze(s, 0).to(device)
         # with torch.no_grad():
         #     a = actor_net.forward(s)
-        #     # noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
-        #     noise = torch.FloatTensor([[np.random.randn() * 0.01]]).to(device)
+        #     noise = torch.FloatTensor([[ornstein_uhlenbeck(noise_prev.item())]]).to(device)
         #     a += noise
         #     a = torch.clamp(a, -1, 1).to(device)
         #     noise_prev = noise
