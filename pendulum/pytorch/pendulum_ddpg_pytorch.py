@@ -168,7 +168,7 @@ if __name__ == "__main__":
             #     a += noise
             #     a = torch.clamp(a, -1, 1).to(device)
             #     noise_prev = noise
-            a = actor_net.get_action(s)
+            a = actor_net.get_action(s).to(device)
 
             o_next, r, done, _ = env.step(np.array([a.item()]))
             r_total += r
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         #     a += noise
         #     a = torch.clamp(a, -1, 1).to(device)
         #     noise_prev = noise
-        a = actor_net.get_action(s)
+        a = actor_net.get_action(s).to(device)
         o_next, r, done, _ = env.step(np.array([a.item()]))
         r_total += r
         o = o_next
