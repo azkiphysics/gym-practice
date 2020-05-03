@@ -192,8 +192,8 @@ if __name__ == "__main__":
             batch_r = np.vstack(batch.r)
             batch_done = np.array(batch.done)
 
-            batch_a_ = agent.actor_target_net.predict([batch_s])
-            q_next = agent.critic_target_net.predict([batch_s, batch_a_])
+            batch_a_next = agent.actor_target_net.predict([batch_s_next])
+            q_next = agent.critic_target_net.predict([batch_s_next, batch_a_next])
             q_next[done] = 0.0
             expecteds = batch_r + GAMMA * q_next
             expecteds = tf.stop_gradient(expecteds)
