@@ -14,6 +14,41 @@ tf.compat.v1.disable_eager_execution()
 Transition = namedtuple('Transition', ('s', 'a', 's_next', 'r', 'done'))
 
 
+def make_graph(rewards, savedir="img", savefile="graph.png"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    fig = plt.figure(figsize=(6,4))
+    ax = fig.add_subplot(111)
+    ax.plot(np.arange(1, len(rewards)+1, 1), rewards)
+    ax.set_xlim(0, len(rewards))
+    plt.savefig(path, dpi=300)
+
+def make_movie(frames, savedir="movie", savefile="movie.mp4"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter(path, fourcc, 50.0, (600, 600))
+
+    for frame in frames:
+        frame = cv2.resize(frame, (600,600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
+
+def save_model(model, savedir="model", savefile="model.h5"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    model.save(path)
+
+
 class ReplayMemory():
 
     def __init__(self, capacity):
@@ -110,7 +145,7 @@ class DDPG():
 
 if __name__ == "__main__":
     CAPACITY = 10000
-    EPISODE = 100
+    EPISODE = 1
     BATCH_SIZE = 64
     GAMMA = 0.99
     ACTOR_LR = 1e-4
@@ -126,6 +161,7 @@ if __name__ == "__main__":
     critic_optimizer = K.optimizers.Adam(learning_rate=CRITIC_LR)
     agent = DDPG(n_observation, n_actions, actor_optimizer, critic_optimizer)
     
+    r_totals = []
     for e in range(EPISODE):
         o = env.reset()
         done = False
@@ -165,4 +201,40 @@ if __name__ == "__main__":
             agent.update(batch_s, batch_a, expecteds)
 
         else:
+            r_totals.append(r_total)
             print("Episode: {}, Total Reward: {}".format(e, r_total))
+    
+
+    savedir = "img"
+    savefile = "reward_pendulum_ddpg_tensorflow.png"
+    make_graph(r_totals, savedir=savedir, savefile=savefile)
+
+
+    o = env.reset()
+    done = False
+    r_total = 0
+    frames = []
+    while not done:
+        frames.append(env.render(mode="rgb_array"))
+        s = np.reshape(o, (1, -1))
+        a = agent.get_action(s)
+        o, r, done, _ = env.step(a[0])
+        r_total += r
+    else:
+        print("Total Rewards: {}".format(r_total))
+    
+    savedir = "movie"
+    savefile = "movie_pendulum_ddpg_tensorflow.mp4"
+    make_movie(frames, savedir=savedir, savefile=savefile)
+
+    savedir = "model"
+    savefile = "model_pendulum_ddpg_actor_net_tensorflow.h5"
+    save_model(agent.actor_net, savedir=savedir, savefile=savefile)
+    savefile = "model_pendulum_ddpg_critic_net_tensorflow.h5"
+    save_model(agent.critic_net, savedir=savedir, savefile=savefile)
+
+    # agent_test = DDPG(n_observation, n_actions, actor_optimizer, critic_optimizer)
+    # savefile = "model_pendulum_ddpg_actor_net_tensorflow.h5"
+    # agent_test.actor_net.load_weights(os.path.join(os.path.join(os.getcwd(), savedir),savefile))
+    # savefile = "model_pendulum_ddpg_critic_net_tensorflow.h5"
+    # agent_test.critic_net.load_weights(os.path.join(os.path.join(os.getcwd(), savedir),savefile))

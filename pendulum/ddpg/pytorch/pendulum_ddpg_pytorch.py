@@ -228,7 +228,7 @@ if __name__ == "__main__":
     done = False
     r_total = 0
     frames = []
-    noise_prev = torch.FloatTensor([[0.0]])
+    # noise_prev = torch.FloatTensor([[0.0]])
     while not done:
         frames.append(env.render(mode="rgb_array"))
         s = torch.from_numpy(o).type(torch.FloatTensor)
