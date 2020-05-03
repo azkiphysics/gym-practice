@@ -101,13 +101,13 @@ class DDPG():
     def set_updater(self):
         s = tf.compat.v1.placeholder(shape=(None), dtype="float32")
         a = tf.compat.v1.placeholder(shape=(None), dtype="float32")
-        expected = tf.compat.v1.placeholder(shape=(None), dtype="float32")
+        estimated = tf.compat.v1.placeholder(shape=(None), dtype="float32")
 
         q = self.critic_net([s, a])
-        critic_loss = tf.reduce_mean((q-expected)**2)
+        critic_loss = tf.reduce_mean((q-estimated)**2)
         critic_updates = self.critic_optimizer.get_updates(loss=critic_loss, params=self.critic_net.trainable_weights)
         self._critic_updater = K.backend.function(
-            inputs = [s, a, expected],
+            inputs = [s, a, estimated],
             outputs = [critic_loss],
             updates = critic_updates
         )
@@ -121,8 +121,8 @@ class DDPG():
             updates = actor_updates
         )
     
-    def update(self, s, a, expected, tau=0.01):
-        self._critic_updater([s, a, expected])
+    def update(self, s, a, estimated, tau=0.01):
+        self._critic_updater([s, a, estimated])
         self.critic_net.trainable = False
         self._actor_updater([s])
         self.critic_net.trainable = True
@@ -196,10 +196,10 @@ if __name__ == "__main__":
             q_next = agent.critic_target_net.predict([batch_s_next, batch_a_next])
             q_next[batch_done] = 0.0
 
-            expecteds = batch_r + GAMMA * q_next
-            expecteds = tf.stop_gradient(expecteds)
+            estimateds = batch_r + GAMMA * q_next
+            estimateds = tf.stop_gradient(estimateds)
 
-            agent.update(batch_s, batch_a, expecteds)
+            agent.update(batch_s, batch_a, estimateds)
 
         else:
             r_totals.append(r_total)
