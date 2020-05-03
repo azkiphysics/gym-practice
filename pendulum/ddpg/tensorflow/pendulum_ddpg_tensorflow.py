@@ -106,26 +106,19 @@ class DDPG():
         q = self.critic_net([s, a])
         critic_loss = tf.reduce_mean((q-estimated)**2)
         critic_updates = self.critic_optimizer.get_updates(loss=critic_loss, params=self.critic_net.trainable_weights)
-        self._critic_updater = K.backend.function(
-            inputs = [s, a, estimated],
-            outputs = [critic_loss],
-            updates = critic_updates
-        )
 
         a_ = self.actor_net(s)
         actor_loss = -tf.reduce_mean(self.critic_net([s, a_]))
         actor_updates = self.actor_optimizer.get_updates(loss=actor_loss, params=self.actor_net.trainable_weights)
-        self._actor_updater = K.backend.function(
-            inputs = [s],
-            outputs = [actor_loss],
-            updates = actor_updates
+        
+        self._updater = K.backend.function(
+            inputs = [s, a, estimated],
+            outputs = [critic_loss, actor_loss],
+            updates = [critic_updates, actor_updates]
         )
     
     def update(self, s, a, estimated, tau=0.01):
-        self._critic_updater([s, a, estimated])
-        self.critic_net.trainable = False
-        self._actor_updater([s])
-        self.critic_net.trainable = True
+        self._updater([s, a, estimated])
         self.soft_update(tau=tau)
     
     def soft_update(self, tau=0.01):
