@@ -131,10 +131,10 @@ class DDPG():
     def soft_update(self, tau=0.01):
         weights = np.array(self.actor_net.get_weights())
         target_weights = np.array(self.actor_target_net.get_weights())
-        self.actor_target_net.set_weights(weights*tau + target_weights*tau)
+        self.actor_target_net.set_weights(weights*tau + target_weights*(1-tau))
         weights = np.array(self.critic_net.get_weights())
         target_weights = np.array(self.critic_target_net.get_weights())
-        self.critic_target_net.set_weights(weights*tau + target_weights*tau)
+        self.critic_target_net.set_weights(weights*tau + target_weights*(1-tau))
     
     def get_action(self, s, noise_scale=0.1, a_limit=1.0):
         a = self.actor_net.predict(s) + noise_scale * np.array([[np.random.randn()]])
@@ -145,7 +145,7 @@ class DDPG():
 
 if __name__ == "__main__":
     CAPACITY = 10000
-    EPISODE = 1
+    EPISODE = 200
     BATCH_SIZE = 64
     GAMMA = 0.99
     ACTOR_LR = 1e-4
@@ -194,7 +194,8 @@ if __name__ == "__main__":
 
             batch_a_next = agent.actor_target_net.predict([batch_s_next])
             q_next = agent.critic_target_net.predict([batch_s_next, batch_a_next])
-            q_next[done] = 0.0
+            q_next[batch_done] = 0.0
+
             expecteds = batch_r + GAMMA * q_next
             expecteds = tf.stop_gradient(expecteds)
 
