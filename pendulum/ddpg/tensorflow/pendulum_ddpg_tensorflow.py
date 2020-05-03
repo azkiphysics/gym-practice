@@ -32,37 +32,89 @@ class ReplayMemory():
 
 class DDPG():
 
-    def __init__(self, n_observation, n_actions):
+    def __init__(self, n_observation, n_actions, actor_optimizer, critic_optimizer):
         self.n_observation = n_observation
         self.n_actions = n_actions
+        self.actor_optimizer = actor_optimizer
+        self.critic_optimizer = critic_optimizer
+        self.make_model()
+        self.set_updater()
+
+    def make_model(self):
         normal = K.initializers.glorot_normal()
-
         actor_net = K.Sequential()
-        actor_net.add(K.layers.Dense(400, input_shape=(n_observation,), activation="relu", kernel_initializer=normal))
+        actor_net.add(K.layers.Dense(400, input_shape=(self.n_observation,), activation="relu", kernel_initializer=normal))
         actor_net.add(K.layers.Dense(300, activation="relu", kernel_initializer=normal))
-        actor_net.add(K.layers.Dense(n_actions, kernel_initializer=normal))
+        actor_net.add(K.layers.Dense(self.n_actions, kernel_initializer=normal))
         self.actor_net = K.Model(inputs=actor_net.input, outputs=actor_net.output)
+        self.actor_target_net = K.models.clone_model(self.actor_net)
 
-        obs_input = K.layers.Input(shape=(n_observation,), dtype="float32")
-        actions_input = K.layers.Input(shape=(n_actions,), dtype="float32")
-        obs_net = K.layers.Dense(400, input_shape=(n_observation,), activation="relu", kernel_initializer=normal)
+        obs_input = K.layers.Input(shape=(self.n_observation,), dtype="float32")
+        actions_input = K.layers.Input(shape=(self.n_actions,), dtype="float32")
+        obs_net = K.layers.Dense(400, input_shape=(self.n_observation,), activation="relu", kernel_initializer=normal)
         critic_input = K.layers.Concatenate()([obs_net(obs_input), actions_input])
         critic_net = K.Sequential()
-        critic_net.add(K.layers.Dense(32, activation="relu", kernel_initializer=normal))
-        critic_net.add(K.layers.Dense(32, activation="relu", kernel_initializer=normal))
-        critic_net.add(K.layers.Dense(32, activation="relu", kernel_initializer=normal))
+        critic_net.add(K.layers.Dense(300, activation="relu", kernel_initializer=normal))
         critic_net.add(K.layers.Dense(1, kernel_initializer=normal))
         critic_eval = critic_net(critic_input)
-        self.critic_net = K.Model(inputs=[obs_input, actions_input], outputs=critic_net.output)
+        self.critic_net = K.Model(inputs=[obs_input, actions_input], outputs=critic_eval)
+        self.critic_target_net = K.models.clone_model(self.critic_net)
 
         print(self.actor_net.summary())
         print(self.critic_net.summary())
 
+    def set_updater(self):
+        s = tf.compat.v1.placeholder(shape=(None), dtype="float32")
+        a = tf.compat.v1.placeholder(shape=(None), dtype="float32")
+        expected = tf.compat.v1.placeholder(shape=(None), dtype="float32")
+
+        q = self.critic_net([s, a])
+        critic_loss = tf.reduce_mean((q-expected)**2)
+        critic_updates = self.critic_optimizer.get_updates(loss=critic_loss, params=self.critic_net.trainable_weights)
+        self._critic_updater = K.backend.function(
+            inputs = [s, a, expected],
+            outputs = [critic_loss],
+            updates = critic_updates
+        )
+
+        a_ = self.actor_net(s)
+        actor_loss = -tf.reduce_mean(self.critic_net([s, a_]))
+        actor_updates = self.actor_optimizer.get_updates(loss=actor_loss, params=self.actor_net.trainable_weights)
+        self._actor_updater = K.backend.function(
+            inputs = [s],
+            outputs = [actor_loss],
+            updates = actor_updates
+        )
+    
+    def update(self, s, a, expected, tau=0.01):
+        self._critic_updater([s, a, expected])
+        self.critic_net.trainable = False
+        self._actor_updater([s])
+        self.critic_net.trainable = True
+        self.soft_update(tau=tau)
+    
+    def soft_update(self, tau=0.01):
+        weights = np.array(self.actor_net.get_weights())
+        target_weights = np.array(self.actor_target_net.get_weights())
+        self.actor_target_net.set_weights(weights*tau + target_weights*tau)
+        weights = np.array(self.critic_net.get_weights())
+        target_weights = np.array(self.critic_target_net.get_weights())
+        self.critic_target_net.set_weights(weights*tau + target_weights*tau)
+    
+    def get_action(self, s, noise_scale=0.1, a_limit=1.0):
+        a = self.actor_net.predict(s) + noise_scale * np.array([[np.random.randn()]])
+        a = np.clip(a, -a_limit, a_limit)
+        return a
+
+
 
 if __name__ == "__main__":
     CAPACITY = 10000
-    EPISODE = 1
+    EPISODE = 100
     BATCH_SIZE = 64
+    GAMMA = 0.99
+    ACTOR_LR = 1e-4
+    CRITIC_LR = 1e-3
 
     env = gym.make("Pendulum-v0")
     n_observation = env.observation_space.shape[0]
@@ -70,8 +122,10 @@ if __name__ == "__main__":
 
     memory = ReplayMemory(CAPACITY)
 
-    agent = DDPG(n_observation, n_actions)
-
+    actor_optimizer = K.optimizers.Adam(learning_rate=ACTOR_LR)
+    critic_optimizer = K.optimizers.Adam(learning_rate=CRITIC_LR)
+    agent = DDPG(n_observation, n_actions, actor_optimizer, critic_optimizer)
+    
     for e in range(EPISODE):
         o = env.reset()
         done = False
@@ -80,9 +134,9 @@ if __name__ == "__main__":
         while not done:
             step += 1
             s = np.reshape(o, (1, -1))
-            a = env.action_space.sample()
+            a = agent.get_action(s)
             
-            o_next, r, done, _ = env.step(a)
+            o_next, r, done, _ = env.step(a[0])
             
             r_total += r
             r = np.array([[r]])
@@ -101,6 +155,14 @@ if __name__ == "__main__":
             batch_s_next = np.vstack(batch.s_next)
             batch_r = np.vstack(batch.r)
             batch_done = np.array(batch.done)
+
+            batch_a_ = agent.actor_target_net.predict([batch_s])
+            q_next = agent.critic_target_net.predict([batch_s, batch_a_])
+            q_next[done] = 0.0
+            expecteds = batch_r + GAMMA * q_next
+            expecteds = tf.stop_gradient(expecteds)
+
+            agent.update(batch_s, batch_a, expecteds)
 
         else:
             print("Episode: {}, Total Reward: {}".format(e, r_total))
