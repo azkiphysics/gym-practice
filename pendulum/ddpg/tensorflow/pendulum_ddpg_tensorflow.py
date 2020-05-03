@@ -80,7 +80,7 @@ class DDPG():
         actor_net = K.Sequential()
         actor_net.add(K.layers.Dense(400, input_shape=(self.n_observation,), activation="relu", kernel_initializer=normal))
         actor_net.add(K.layers.Dense(300, activation="relu", kernel_initializer=normal))
-        actor_net.add(K.layers.Dense(self.n_actions, kernel_initializer=normal))
+        actor_net.add(K.layers.Dense(self.n_actions, activation="tanh", kernel_initializer=normal))
         self.actor_net = K.Model(inputs=actor_net.input, outputs=actor_net.output)
         self.actor_target_net = K.models.clone_model(self.actor_net)
 
@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
         else:
             r_totals.append(r_total)
-            print("Episode: {}, Total Reward: {}".format(e, r_total))
+            print("Episode: {}, Total Reward: {}".format(e+1, r_total))
     
 
     savedir = "img"
