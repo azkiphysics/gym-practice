@@ -21,8 +21,8 @@ class ReplayMemoryBuffer():
     def push(self, *args):
         self.memory.append(*args)
     
-    def sample(self, batch_size):
-        random.sample(self.memory, batch_size)
+    def sample(self, trajectory_size):
+        random.sample(self.memory, trajectory_size)
     
     def __len__(self):
         return len(self.memory)
@@ -65,16 +65,35 @@ class PendulumObserver(Observer):
             return np.reshape(x, (1, -1)).astype(np.float32)
 
 
-class PPOModel(K.Model):
+class Actor(K.Model):
 
     def __init__(self, n_actions):
-        super(PPOModel, self).__init__()
+        super(Actor, self).__init__()
+        normal = K.initializers.glorot_normal()
+        self.fc1 = K.layers.Dense(64, activation="relu", kernel_initializer=normal)
+        self.fc2 = K.layers.Dense(64, activation="relu", kernel_initializer=normal)
+        self.mu = K.layers.Dense(n_actions, activation="tanh", kernel_initializer=normal)
+        self.logstd = np.zeros((n_actions,))
 
     def call(self, inputs):
-        mu = None
-        sigma = None
-        q = None
-        return mu, sigma, q
+        x = self.fc1(inputs)
+        x = self.fc2(x)
+        return self.mu(x)
+
+
+class Critic(K.Model):
+
+    def __init__(self):
+        super(Critic, self).__init__()
+        normal = K.initializers.glorot_normal()
+        self.fc1 = K.layers.Dense(64, activation="relu", kernel_initializer=normal)
+        self.fc2 = K.layers.Dense(64, activation="relu", kernel_initializer=normal)
+        self.out = K.layers.Dense(1, kernel_initializer=normal)
+    
+    def call(self, inputs):
+        x = self.fc1(inputs)
+        x = self.fc2(x)
+        return self.out(x)
 
 
 class FNAgent():
@@ -139,32 +158,46 @@ class PPOAgent(FNAgent):
     def __init__(self, n_actions):
         super(PPOAgent, self).__init__(epsilon=0.0, n_actions=n_actions)
         self.n_actions = n_actions
-        self.model = PPOModel(n_actions=n_actions)
+        self.actor = Actor(n_actions)
+        self.critic = Critic()
+    
+    @classmethod
+    def load(cls, env, actor_path, critic_path, epsilon=1e-4):
+        n_actions = env.action_space.shape[0]
+        agent = cls(epsilon, n_actions)
+        agent.actor = K.models.load_model(actor_path)
+        agent.critic = K.models.load_model(critic_path)
+        agent.initialized = True
+        return agent
 
     def initialize(self, experiences):
         pass
     
     def estimate(self, s, s_next, r, gamma):
-        _, v = self.model(s)
-        _, v_next = self.model(s_next)
-        q_v = r + gamma * v_next
-        return v, q_v
+        
     
-    def update(self, experiences, gamma):
-        raise NotImplementedError("You have to implement update method.")
+    def update(self, batch, gamma):
+        batch_s = batch.s
+        batch_a = batch.a
+        batch_s_next = batch.s_next
+        batch_r = batch.r
+        batch_done = batch.done
 
     def policy(self, s):
-         mu, sigma, _ = self.model(s)
+         mu = self.actor(s)
          a = np.random.normal(mu, sigma)
          return a
 
 
 class Trainer():
 
-    def __init__(self, buffer_size=10000, batch_size=64, gamma=0.99, report_interval=10, log_dir=""):
+    def __init__(self, buffer_size=10000, trajectory_size=2049, batch_size=64, gamma=0.99,
+                 gae_lambda=0.95, report_interval=10, log_dir=""):
         self.buffer_size = buffer_size
         self.batch_size = batch_size
         self.gamma = gamma
+        self.trajectory_size = trajectory_size
+        self.gae_lambda = 0.95
         self.report_interval = report_interval
         self.logger = Logger(log_dir, self.trainer_name)
         self.experiences = ReplayMemoryBuffer(buffer_size)
@@ -199,16 +232,19 @@ class Trainer():
                 s = s_next
                 r_total += r
 
-                if len(self.experiences) < self.batch_size:
+                if len(self.experiences) < self.tragectory_size:
                     continue
 
-                self.step(agent, self.experiences)
+                transitions = self.experiences.sample(trajectory_size=self.trajectory_size)
+                trajectories = Transition(*zip(*transitions))
+
+                self.step(agent, trajectories)
             else:
                 self.reward_log.append(r_total)
                 print("Episode: {}, Total Reward: {}".format(e, r_total))
     
-    def step(self, agent, experiences):
-        pass
+    def step(self, agent, trajectories):
+        
 
 
 class PPOTrainer(Trainer):
