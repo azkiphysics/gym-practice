@@ -119,7 +119,7 @@ class Observer():
         return self.transform(self._env.reset())
     
     def step(self, a):
-        o_next, r, done, info = self._env.step(a[0])
+        o_next, r, done, info = self._env.step(a)
         return self.transform(o_next), r*R_SCALE, done, info
     
     def close(self):
@@ -210,7 +210,7 @@ if __name__ == "__main__":
                 mu = actor(s)
                 a = mu + torch.exp(actor.logstd) * np.random.normal()
                 a = torch.clamp(a, -1.0, 1.0).to(device)
-            s_next, r, done, _ = env.step(a.detach())
+            s_next, r, done, _ = env.step(a.squeeze(-1).data.cpu().numpy())
             v = critic(s)
 
             buffer.push(Transition(s, a, r, done))
@@ -283,7 +283,7 @@ if __name__ == "__main__":
             mu = actor(s)
             a = mu + torch.exp(actor.logstd) * np.random.normal()
             a = torch.clamp(a, -1.0, 1.0).to(device)
-        s_next, r, done, _ = env.step(a.detach())
+        s_next, r, done, _ = env.step(a.squeeze(-1).data.cpu().numpy())
         r_total += r
         s = s_next
     else:
