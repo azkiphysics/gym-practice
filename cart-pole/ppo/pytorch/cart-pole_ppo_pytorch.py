@@ -11,7 +11,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-EPISODE_SIZE = 1000
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+EPISODE_SIZE = 500
 BUFFER_SIZE = 10000
 TRAJECTORY_SIZE = 1024
 EPOCH_SIZE = 10
@@ -19,7 +21,8 @@ BATCH_SIZE = 128
 GAMMA = 0.99
 LAMMDA = 0.95
 EPS = 0.2
-
+LR_ACTOR = 1e-4
+LR_CRITIC = 1e-3
 
 Transition = namedtuple('Transition', ('s', 'a', 'pi', 'r', 'done'))
 
@@ -47,6 +50,31 @@ def make_graph(steps, savedir="img", savefile="graph.png"):
     ax.set_xlim(0, len(steps))
     plt.savefig(path, dpi=300)
     plt.show()
+
+
+def make_movie(frames, savedir="movie", savefile="movie.mp4"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter(path, fourcc, 50.0, (600, 600))
+
+    for frame in frames:
+        frame = cv2.resize(frame, (600,600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
+
+
+def save_model(model, savedir="model", savefile="model.pth"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    torch.save(model.state_dict(), path)
 
 
 class MemoryBuffer():
@@ -95,7 +123,7 @@ class Observer():
     
     def transform(self, o):
         s = torch.from_numpy(o).type(torch.FloatTensor)
-        return s.unsqueeze(0)
+        return s.unsqueeze(0).to(device)
 
 
 class Actor(nn.Module):
@@ -140,25 +168,24 @@ def calc_adv(critic, traj_s_v, traj_r_v, traj_done):
             last_gae = delta + GAMMA * LAMMDA * last_gae
         adv_v.append(last_gae)
         ref_v.append(last_gae + v)
-    adv_v = torch.cat(tuple(reversed(adv_v))).unsqueeze(1).detach()
-    ref_v = torch.cat(tuple(reversed(ref_v))).unsqueeze(1).detach()
+    adv_v = torch.cat(tuple(reversed(adv_v))).unsqueeze(1)
+    adv_v = adv_v.to(device)
+    ref_v = torch.cat(tuple(reversed(ref_v))).unsqueeze(1)
+    ref_v = ref_v.to(device)
 
-    return adv_v, ref_v
+    return adv_v.detach(), ref_v.detach()
 
 
 if __name__ == "__main__":
-    lr_actor = 1e-3
-    lr_critic = 1e-2
-
     env = Observer(gym.make("CartPole-v0").unwrapped)
     n_observations = env.observation_space.shape[0]
     n_actions = env.action_space.n
 
-    actor = Actor(n_observations, n_actions)
-    critic = Critic(n_observations)
+    actor = Actor(n_observations, n_actions).to(device)
+    critic = Critic(n_observations).to(device)
 
-    optim_actor = optim.Adam(actor.parameters(), lr=lr_actor)
-    optim_critic = optim.Adam(critic.parameters(), lr=lr_critic)
+    optim_actor = optim.Adam(actor.parameters(), lr=LR_ACTOR)
+    optim_critic = optim.Adam(critic.parameters(), lr=LR_CRITIC)
 
     buffer = MemoryBuffer(BUFFER_SIZE)
 
@@ -168,10 +195,8 @@ if __name__ == "__main__":
         done = False
         step = 0
         while not done:
-            # env.render()
             step += 1
 
-            # a = env.action_space.sample()
             actor.eval()
             with torch.no_grad():
                 a_probs = actor(s)
@@ -199,7 +224,7 @@ if __name__ == "__main__":
             trajs = Transition(*zip(*trajs))
             traj_s_v = torch.cat(trajs.s)
             traj_a_v = torch.cat(trajs.a)
-            traj_r_v = torch.FloatTensor(trajs.r).unsqueeze(1)
+            traj_r_v = torch.FloatTensor(trajs.r).unsqueeze(1).to(device)
             traj_done = trajs.done
             
             traj_adv_v, traj_ref_v = calc_adv(critic, traj_s_v, traj_r_v, traj_done)
@@ -246,5 +271,35 @@ if __name__ == "__main__":
     dirname = "img"
     filename = "cart_pole_pendulum_pytorch.png"
     make_graph(steps, savedir=dirname, savefile=filename)
+
+
+    s = env.reset()
+    done = False
+    step = 0
+    frames = []
+    while not done:
+        step += 1
+        frames.append(env.render())
+        with torch.no_grad():
+            a_probs = actor(s)
+            a = a_probs.multinomial(num_samples=1)
+        s_next, r, done, _ = env.step(a.item())
+        s = s_next
+
+        if step > 1000:
+            break
+    else:
+        print("Test:\nTotal Step: {}".format(step))
+
+    dirname = "movie"
+    filename = "cart_pole_pendulum_pytorch.mp4"
+    make_movie(frames, savedir=dirname, savefile=filename)
+
+
+    dirname = "model"
+    filename = "cart_pole_pendulum_pytorch_actor.pth"
+    save_model(actor, savedir=dirname, savefile=filename)
+    filename = "cart_pole_pendulum_pytorch_critic.pth"
+    save_model(critic, savedir=dirname, savefile=filename)
 
     env.close()
