@@ -13,7 +13,7 @@ import torch.optim as optim
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-EPISODE_SIZE = 500
+EPISODE_SIZE = 1000
 BUFFER_SIZE = 10000
 TRAJECTORY_SIZE = 1024
 EPOCH_SIZE = 10
@@ -23,6 +23,7 @@ LAMMDA = 0.95
 EPS = 0.2
 LR_ACTOR = 1e-4
 LR_CRITIC = 1e-3
+MAXLEN = 20
 
 Transition = namedtuple('Transition', ('s', 'a', 'pi', 'r', 'done'))
 
@@ -190,6 +191,7 @@ if __name__ == "__main__":
     buffer = MemoryBuffer(BUFFER_SIZE)
 
     steps = []
+    successes = deque(maxlen=MAXLEN)
     for e in range(EPISODE_SIZE):
         s = env.reset()
         done = False
@@ -219,6 +221,10 @@ if __name__ == "__main__":
 
             if len(buffer) < TRAJECTORY_SIZE:
                 continue
+
+            if sum(successes) == MAXLEN:
+                print("{} times success!".format(successes))
+                break
             
             trajs = buffer.get()
             trajs = Transition(*zip(*trajs))
