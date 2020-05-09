@@ -10,10 +10,74 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+
+LR_ACTOR = 1e-4
+LR_CRITIC = 1e-3
+EPISODE = 100
+TRAJECTORY_SIZE = 1024
+EPOCH_SIZE = 10
+BATCH_SIZE = 128
+GAMMA = 0.99
+LAMMDA=0.95
+EPS = 0.2
+R_SCALE = 0.1
+
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
 Transition = namedtuple('Transition', ('s', 'a', 'r', 'done'))
+
+
+def make_graph(rewards, savedir="img", savefile="graph.png"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+
+    N = len(rewards)
+    batch_size = 20
+    rewards_mean = []
+    rewards_std = []
+    episodes = []
+    for i in range(0, N, batch_size):
+        rewards_mean.append(np.mean(rewards[i:i+batch_size]))
+        rewards_std.append(np.std(rewards[i:i+batch_size]))
+        episodes.append(i + int(batch_size/2))
+    rewards_mean = np.array(rewards_mean)
+    rewards_std = np.array(rewards_std)
+
+    fig = plt.figure(figsize=(6,4))
+    ax = fig.add_subplot(111)
+    ax.fill_between(episodes, rewards_mean+rewards_std, rewards_mean-rewards_std, color="blue", alpha=0.1)
+    ax.plot(episodes, rewards_mean, color="blue")
+    ax.set_xlim(0, len(rewards))
+    plt.savefig(path, dpi=300)
+    plt.show()
+
+
+def make_movie(frames, savedir="movie", savefile="movie.mp4"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter(path, fourcc, 50.0, (600, 600))
+
+    for frame in frames:
+        frame = cv2.resize(frame, (600,600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        video.write(frame)
+
+    video.release()
+
+
+def save_model(model, savedir="model", savefile="model.pth"):
+    path = os.path.join(os.getcwd(), savedir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    path = os.path.join(path, savefile)
+    torch.save(model.state_dict(), path)
 
 
 class MemoryBuffer():
@@ -56,7 +120,10 @@ class Observer():
     
     def step(self, a):
         o_next, r, done, info = self._env.step(a[0])
-        return self.transform(o_next), r, done, info
+        return self.transform(o_next), r*R_SCALE, done, info
+    
+    def close(self):
+        self._env.close()
     
     def transform(self, x):
         x = torch.from_numpy(x).type(torch.FloatTensor)
@@ -73,9 +140,9 @@ class Actor(nn.Module):
         self.logstd = nn.Parameter(torch.zeros(n_actions))
     
     def forward(self, x):
-        x = F.tanh(self.fc1(x))
-        x = F.tanh(self.fc2(x))
-        return F.tanh(self.out(x))
+        x = torch.tanh(self.fc1(x))
+        x = torch.tanh(self.fc2(x))
+        return torch.tanh(self.out(x))
 
 
 class Critic(nn.Module):
@@ -107,10 +174,12 @@ def calc_adv(critic, traj_s_v, traj_r, traj_done, gamma, lam, device):
             delta = r + gamma * val_next - val
             last_gae = delta + (gamma*lam) * last_gae
         result_adv.append(last_gae)
-        result_ref.append(delta + val)
+        result_ref.append(last_gae + val)
     adv_v = torch.FloatTensor(list(reversed(result_adv))).unsqueeze(1)
+    adv_v = adv_v.to(device)
     ref_v = torch.FloatTensor(list(reversed(result_ref))).unsqueeze(1)
-    return adv_v.to(device), ref_v.to(device)
+    ref_v = ref_v.to(device)
+    return adv_v.detach(), ref_v.detach()
 
 
 def calc_logprob(mu_v, logstd_v, traj_a_v):
@@ -119,16 +188,6 @@ def calc_logprob(mu_v, logstd_v, traj_a_v):
 
 
 if __name__ == "__main__":
-    LR_ACTOR = 1e-9
-    LR_CRITIC = 1e-8
-    EPISODE = 10000
-    TRAJECTORY_SIZE = 1024
-    EPOCH_SIZE = 5
-    BATCH_SIZE = 64
-    GAMMA = 0.99
-    LAMMDA=0.95
-    EPS = 0.2
-
     env = Observer(gym.make("Pendulum-v0"))
     n_observations = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
@@ -147,9 +206,8 @@ if __name__ == "__main__":
         done = False
         r_total = 0
         while not done:
-            # env.render()
-            mu = actor.forward(s)
             with torch.no_grad():
+                mu = actor(s)
                 a = mu + torch.exp(actor.logstd) * np.random.normal()
                 a = torch.clamp(a, -1.0, 1.0).to(device)
             s_next, r, done, _ = env.step(a.detach())
@@ -191,7 +249,7 @@ if __name__ == "__main__":
 
                     optim_critic.zero_grad()
                     value_v = critic(batch_s_v)
-                    loss_critic_v = F.mse_loss(value_v, batch_ref_v.detach())
+                    loss_critic_v = F.mse_loss(value_v, batch_ref_v)
                     loss_critic_v.backward()
                     optim_critic.step()
 
@@ -205,7 +263,40 @@ if __name__ == "__main__":
                     loss_actor_v = -torch.min(surr_obj_v, clipped_surr_obj_v).mean()
                     loss_actor_v.backward()
                     optim_actor.step()
-            print(loss_critic_v)
             buffer.clear()
         else:
-            print("Episode: {}, Total Reward: {}".format(e, r_total))
+            r_totals.append(r_total)
+            print("Episode: {}, Total Reward: {}".format(e+1, r_total/R_SCALE))
+    
+    rewards = np.array(r_totals)
+    dirname = "img"
+    filename = "pendulum_ppo_pytorch.png"
+    make_graph(rewards, savedir=dirname, savefile=filename)
+    
+    s = env.reset()
+    done = False
+    r_total = 0
+    frames = []
+    while not done:
+        frames.append(env.render())
+        with torch.no_grad():
+            mu = actor(s)
+            a = mu + torch.exp(actor.logstd) * np.random.normal()
+            a = torch.clamp(a, -1.0, 1.0).to(device)
+        s_next, r, done, _ = env.step(a.detach())
+        r_total += r
+        s = s_next
+    else:
+        print("Test:\nTotal Rewards: {}".format(r_total/R_SCALE))
+
+    dirname = "movie"
+    filename = "pendulum_ppo_pytorch.mp4"
+    make_movie(frames, savedir=dirname, savefile=filename)
+
+    dirname = "model"
+    filename = "pendulum_ppo_pytorch_actor.pth"
+    save_model(actor, savedir=dirname, savefile=filename)
+    filename = "pendulum_ppo_pytorch_critic.pth"
+    save_model(critic, savedir=dirname, savefile=filename)
+
+    env.close()
