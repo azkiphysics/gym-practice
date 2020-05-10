@@ -18,7 +18,7 @@ TRAJECTORY_SIZE = 2048
 EPOCH_SIZE = 10
 BATCH_SIZE = 128
 GAMMA = 0.99
-LAMMDA=0.95
+LAMBDA=0.95
 EPS = 0.2
 R_SCALE = 0.1
 
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             traj_r = trajs.r
             traj_done = trajs.done
             
-            traj_adv_v, traj_ref_v = calc_adv(critic, traj_s_v, traj_r, traj_done, GAMMA, LAMMDA, device)
+            traj_adv_v, traj_ref_v = calc_adv(critic, traj_s_v, traj_r, traj_done, GAMMA, LAMBDA, device)
             mu_v = actor(traj_s_v)
             old_logprob_v = calc_logprob(mu_v, actor.logstd, traj_a_v).to(device)
             

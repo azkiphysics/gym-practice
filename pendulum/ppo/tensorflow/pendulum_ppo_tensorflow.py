@@ -243,7 +243,7 @@ class Trainer():
         snaked = snaked.replace("_trainer", "")
         return snaked
     
-    def train_loop(self, env, agent, episode=200, initial_count=-1, render=False, observe_interval=0):
+    def train_loop(self, env, agent, episode=10000, initial_count=-1, render=False, observe_interval=0):
         agent.initialize(optim_actor=K.optimizers.Adam(learning_rate=self.lr_actor),
                          optim_critic=K.optimizers.Adam(learning_rate=self.lr_critic))
         

@@ -19,7 +19,7 @@ TRAJECTORY_SIZE = 1024
 EPOCH_SIZE = 10
 BATCH_SIZE = 128
 GAMMA = 0.99
-LAMMDA = 0.95
+LAMBDA = 0.95
 EPS = 0.2
 LR_ACTOR = 1e-4
 LR_CRITIC = 1e-3
@@ -166,7 +166,7 @@ def calc_adv(critic, traj_s_v, traj_r_v, traj_done):
             last_gae = delta
         else:
             delta = r + GAMMA * v_next - v
-            last_gae = delta + GAMMA * LAMMDA * last_gae
+            last_gae = delta + GAMMA * LAMBDA * last_gae
         adv_v.append(last_gae)
         ref_v.append(last_gae + v)
     adv_v = torch.cat(tuple(reversed(adv_v))).unsqueeze(1)
