@@ -257,5 +257,19 @@ class PPOMaster(object):
 
 class PPOWorker(object):
 
-    def __init__(self):
-        pass
+    def __init__(self, actor_critic):
+        self.actor_critic = actor_critic
+    
+    def update(self, actor_critic):
+        self.actor_critic.pi.set_weights(np.array(self.actor_critic.pi.get_weights()))
+        self.actor_critic.v.set_weights(np.array(self.actor_critic.v.get_weights()))
+    
+    def step(self, observation):
+        action, v, logp = self.actor_critic.step(observation)
+        return (action, v, logp)
+
+class PPOThread(object):
+
+    def __init__(self, env, worker):
+        self.env = env
+        self.worker = worker
